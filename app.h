@@ -19,6 +19,7 @@ typedef struct app {
     // Our message list
     message_list_t message_list;
 
+    TTF_Font* inputbox_font;
     TTF_Font* font;
     int font_size;
     bool quit;

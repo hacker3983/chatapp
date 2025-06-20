@@ -21,6 +21,8 @@ void app_create(app_t* app) {
     app->font = TTF_OpenFont("Roboto-Italic-VariableFont_wdth,wght.ttf",
 		FONT_SIZE);
 	app->font_size = FONT_SIZE;
+	app->inputbox_font = TTF_OpenFont("Symbola.ttf",
+		FONT_SIZE);
 }
 
 void app_getwindowsize(app_t* app) {
@@ -87,31 +89,30 @@ void app_run(app_t* app) {
         if(header_texture) {
             SDL_RenderCopy(app->renderer, header_texture, NULL, &header_textcanvas);
         }
-
-		if(enter_pressed) {
-			message_list_add(&app->message_list, app->font, app->font_size,
-				message_buffer,
+		if(app->inputbox.enter_pressed) {
+			message_list_add(&app->message_list, app->inputbox_font, app->font_size,
+				app->inputbox.data,
 				message_color,
 				10,
 				10,
 				10,
 				message_canvascolor
 			);
-			free(message_buffer);
-			message_buffer = NULL;
+			inputbox_clear(&app->inputbox);
 		}
 		int start_x = 10, start_y = header.y + header.h + 10;
 		message_list_setstartpos(&app->message_list, start_x, start_y);
     	// Display our message
 		message_list_display(app, &app->message_list);
-		enter_pressed = false;
 
-		inputbox_init(&app->inputbox, app->font, app->font_size,
+		inputbox_init(&app->inputbox, app->inputbox_font, app->font_size,
 			inputbox_textcolor,
 			app->win_width - 40, 50, inputbox_color,
 			2,
 			50,
-			(SDL_Color){0x00, 0xff, 0x00, 0xff}
+			(SDL_Color){0x00, 0xff, 0x00, 0xff},
+			0.5,
+			(SDL_Color){0x00, 0x00, 0xff, 0xff}
 		);
 		app->inputbox.canvas.x = (app->win_width - app->inputbox.canvas.w) / 2;
 		app->inputbox.canvas.y = app->win_height - app->inputbox.canvas.h - 20;
@@ -127,6 +128,7 @@ void app_destroy(app_t* app) {
     SDL_DestroyRenderer(app->renderer);
 	SDL_DestroyWindow(app->window);
 	TTF_CloseFont(app->font);
+	TTF_CloseFont(app->inputbox_font);
 	TTF_Quit();
 	SDL_Quit();
 }
