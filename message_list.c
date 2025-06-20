@@ -32,7 +32,7 @@ void message_list_add(message_list_t* message_list,
     new_messages[new_count-1].font = font;
     new_messages[new_count-1].font_size = font_size;
     new_messages[new_count-1].text = string_dupstr(message);
-    TTF_SizeText(font, message, &new_messages[new_count-1].text_canvas.w,
+    TTF_SizeUTF8(font, message, &new_messages[new_count-1].text_canvas.w,
         &new_messages[new_count-1].text_canvas.h);
     new_messages[new_count-1].canvas = new_messages[new_count-1].text_canvas;
     new_messages[new_count-1].canvas.w += padding_x * 2;
@@ -66,7 +66,7 @@ void message_list_display(app_t* app, message_list_t* message_list) {
         text_canvas->y = canvas->y + (canvas->h - text_canvas->h) / 2;
 
         // Display our actual message
-        SDL_Surface* message_surface = TTF_RenderText_Blended(message_list->messages[i].font,
+        SDL_Surface* message_surface = TTF_RenderUTF8_Blended(message_list->messages[i].font,
             message_list->messages[i].text,
             message_list->messages[i].text_color);
         SDL_Texture* message_texture = SDL_CreateTextureFromSurface(app->renderer, message_surface);
