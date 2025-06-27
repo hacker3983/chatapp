@@ -1,5 +1,5 @@
 @echo off
 echo Building chatapp...
-gcc main.c app.c app_strings.c message_list.c inputbox.c -lmingw32 -lSDL2main -lSDL2 -lSDL2_ttf -o main
+gcc main.c app.c app_strings.c chatsock.c message_list.c inputbox.c -lmingw32 -lws2_32 -lSDL2main -lSDL2 -lSDL2_ttf -o main
 echo Running chatapp...
 .\main
