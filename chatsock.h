@@ -1,6 +1,7 @@
 #ifndef _CHATSOCKET_H
 #define _CHATSOCKET_H
 #include "chatsock_def.h"
+#include "chatsock_list.h"
 
 void chatsock_init();
 chatsock_t chatsock_create(const char* addr, int port);

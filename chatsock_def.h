@@ -24,4 +24,9 @@ typedef struct chatsock {
     socklen_t addr_len;
     #endif
 } chatsock_t;
+
+typedef struct chatsock_list {
+    chatsock_t* list;
+    size_t count;
+} chatsock_list_t;
 #endif
