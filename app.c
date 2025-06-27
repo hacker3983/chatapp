@@ -3,6 +3,11 @@
 #include "message_list.h"
 #include "app_strings.h"
 #include "inputbox.h"
+#include "chatsock.h"
+#include <pthread.h>
+
+bool received_message = false,
+     recv_threadstarted = false;
 
 void app_init() {
     if(SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -11,9 +16,17 @@ void app_init() {
 	if(TTF_Init() < 0) {
         fprintf(stderr, "Failed to initialize SDL ttf\n");
     }
+	chatsock_init();
 }
+
 void app_create(app_t* app) {
     app_init();
+	app->server_sock = chatsock_create("127.0.0.1", PORT);
+	if(chatsock_connect(&app->server_sock) < 0) {
+		fprintf(stderr, "Failed to connect to the server\n");
+	} else {
+		printf("Connected to the server successfully!\n");
+	}
     app->window = SDL_CreateWindow("Chat Application in C",
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 			WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE);
@@ -34,7 +47,16 @@ void app_setwindowcolor(app_t* app, SDL_Color window_color) {
 	SDL_RenderClear(app->renderer);
 }
 
+void* app_recv_message(void* arg) {
+	app_t* app = (app_t*)arg;
+	char* server_msg = calloc(1024, 0);
+	chatsock_recv(app->server_sock, server_msg, 1024);
+	received_message = true;
+	return server_msg;
+}
+
 void app_run(app_t* app) {
+	pthread_t recv_thread;
     if(!app->font) {
         printf("Failed to open font\n");
     }
@@ -89,7 +111,29 @@ void app_run(app_t* app) {
         if(header_texture) {
             SDL_RenderCopy(app->renderer, header_texture, NULL, &header_textcanvas);
         }
+
+
+		if(!recv_threadstarted) {
+			pthread_create(&recv_thread, NULL, &app_recv_message, app);
+			recv_threadstarted = true;
+		}
+		if(recv_threadstarted && received_message) {
+			char* message = NULL;
+			pthread_join(recv_thread, (void**)&message);
+			message_list_add(&app->message_list, app->inputbox_font, app->font_size,
+				message,
+				(SDL_Color){0xff, 0x00, 0x00, 0xff},
+				10,
+				10,
+				10,
+				message_canvascolor
+			);
+			free(message);
+			recv_threadstarted = false;
+			received_message = false;
+		}
 		if(app->inputbox.enter_pressed) {
+			chatsock_send(app->server_sock, app->inputbox.data, strlen(app->inputbox.data));
 			message_list_add(&app->message_list, app->inputbox_font, app->font_size,
 				app->inputbox.data,
 				message_color,
@@ -122,6 +166,7 @@ void app_run(app_t* app) {
 }
 
 void app_destroy(app_t* app) {
+	chatsock_close(&app->server_sock);
 	message_list_destroy(&app->message_list);
 	inputbox_destroy(&app->inputbox);
 	SDL_DestroyTexture(header_texture);

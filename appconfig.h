@@ -3,6 +3,7 @@
 #define WINDOW_WIDTH 900
 #define WINDOW_HEIGHT 600
 #define FONT_SIZE 36
+#define PORT 7777
 const char* header_text = "Chat Application in C";
 SDL_Color WINDOW_COLOR = {255, 255, 255, 255};
 SDL_Rect inputbox = {

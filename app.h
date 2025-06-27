@@ -5,6 +5,7 @@
 #include <SDL2/SDL_ttf.h>
 #include "message_listdef.h"
 #include "inputboxdef.h"
+#include "chatsock_def.h"
 #define color_toparam(color) color.r, color.g, color.b, color.a
 
 typedef struct app {
@@ -12,6 +13,9 @@ typedef struct app {
     SDL_Window* window;
     SDL_Renderer* renderer;
     SDL_Event e;
+
+    // server socket
+    chatsock_t server_sock;
 
     // input box
     inputbox_t inputbox;
