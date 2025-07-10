@@ -1,32 +1,18 @@
 #include <stdio.h>
 #include "chatserver.h"
 
-void* broadcast_message(void* arg) {
-    broadcast_args_t* broadcast_args = (broadcast_args_t*)arg;
-    chatsock_list_t* client_list = broadcast_args->client_list;
+void broadcast_message(chatsock_list_t* client_list, size_t index, char* message) {
+    chatsock_t client = client_list->list[index].sock;
+    size_t message_size = strlen(message);
     for(size_t i=0;i<client_list->count;i++) {
-        if(client_list->list[i].fd == broadcast_args->client.fd) {
+        if(client_list->list[i].sock.fd == client.fd) {
             continue;
         }
-        chatsock_send(client_list->list[i], broadcast_args->msg, strlen(broadcast_args->msg));
+        chatsock_send(client_list->list[i].sock, &message_size, sizeof(size_t));
+        chatsock_send(client_list->list[i].sock, message, message_size);
     }
 }
 
-void* recv_message(void* arg) {
-    communication_args_t* receive_args = (communication_args_t*)arg,
-        broadcast_args = *receive_args;
-    chatsock_t client_sock = receive_args->client;
-    while(1) {
-        char buff[1024] = {0};
-        chatsock_recv(client_sock, buff, sizeof(buff));
-        broadcast_args.msg = buff;
-        pthread_t broadcast_thread;
-        printf("Received message from client: %s\n", buff);
-        printf("Creating and broacasting message to clients\n");
-        pthread_create(&broadcast_thread, NULL, broadcast_message, &broadcast_args);
-        pthread_join(broadcast_thread, NULL);
-    }
-}
 
 int main() {
     chatsock_init();
@@ -39,18 +25,25 @@ int main() {
     }
     printf("Listening on 0.0.0.0:%d\n", PORT);
     chatsock_list_t client_list = {0};
-    communication_args_t receive_args = {0};
+    chatsock_acceptarg_t acception_arg = {
+        .client_list = &client_list,
+        .sock = sock
+    };
+    pthread_t acception_thread = chatsock_list_start_accept(&acception_arg);
     while(1) {
-        chatsock_t csock = {0};
-        csock = chatsock_accept(&sock);
-        printf("Got connection from %s:%d\n", inet_ntoa(csock.addr.sin_addr),
-            ntohs(csock.addr.sin_port));
-        pthread_t recv_thread;
-        chatsock_list_addsocket(&client_list, csock);
-        receive_args.client = csock;
-        receive_args.client_list = &client_list;
-        pthread_create(&recv_thread, NULL, &recv_message, &receive_args);
+        for(size_t i=0;i<client_list.count;i++) {
+            if(client_list.list[i].recv_started
+                && client_list.list[i].recv_finished) {
+                char* message = chatsock_list_join_recv(&client_list, i);
+                printf("Message received from client %zu: %s\n", i, message);
+                printf("Broadcasting / relaying message to other clients!\n");
+                broadcast_message(&client_list, i, message);
+                free(message);
+                chatsock_list_start_recv(&client_list, i);
+            }
+        }
     }
+    chatsock_list_join_accept(acception_thread);
     chatsock_list_destroy(&client_list);
     chatsock_close(&sock);
     chatsock_destroy();
