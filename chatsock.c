@@ -50,6 +50,18 @@ int chatsock_recv(chatsock_t chatsock, void* buff, size_t buffsize) {
     return recv(chatsock.fd, buff, buffsize, 0);
 }
 
+int chatsock_recvall(chatsock_t chatsock, void* buff, size_t buffsize) {
+    size_t total_bytes_received = 0;
+    while(total_bytes_received < buffsize) {
+        int result = chatsock_recv(chatsock, buff, buffsize);
+        if(result <= 0) {
+            return result;
+        }
+        total_bytes_received += result;
+    }
+    return total_bytes_received;
+}
+
 void chatsock_close(chatsock_t* chatsock) {
     #ifdef _WIN32
     closesocket(chatsock->fd);

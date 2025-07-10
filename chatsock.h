@@ -11,6 +11,7 @@ int chatsock_connect(chatsock_t* chatsock);
 chatsock_t chatsock_accept(chatsock_t* chatsock);
 int chatsock_send(chatsock_t chatsock, void* buff, size_t buffsize);
 int chatsock_recv(chatsock_t chatsock, void* buff, size_t buffsize);
+int chatsock_recvall(chatsock_t chatsock, void* buff, size_t buffsize);
 void chatsock_close(chatsock_t* chatsock);
 void chatsock_destroy();
 #endif
