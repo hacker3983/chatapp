@@ -49,8 +49,10 @@ void app_setwindowcolor(app_t* app, SDL_Color window_color) {
 
 void* app_recv_message(void* arg) {
 	app_t* app = (app_t*)arg;
-	char* server_msg = calloc(1024, 0);
-	chatsock_recv(app->server_sock, server_msg, 1024);
+	size_t server_msglen = 0;
+	chatsock_recv(app->server_sock, &server_msglen, sizeof(size_t));
+	char* server_msg = calloc(server_msglen+1, sizeof(char));
+	chatsock_recvall(app->server_sock, server_msg, server_msglen);
 	received_message = true;
 	return server_msg;
 }
@@ -112,7 +114,6 @@ void app_run(app_t* app) {
             SDL_RenderCopy(app->renderer, header_texture, NULL, &header_textcanvas);
         }
 
-
 		if(!recv_threadstarted) {
 			pthread_create(&recv_thread, NULL, &app_recv_message, app);
 			recv_threadstarted = true;
@@ -133,7 +134,9 @@ void app_run(app_t* app) {
 			received_message = false;
 		}
 		if(app->inputbox.enter_pressed) {
-			chatsock_send(app->server_sock, app->inputbox.data, strlen(app->inputbox.data));
+			size_t message_size = strlen(app->inputbox.data);
+			chatsock_send(app->server_sock, &message_size, sizeof(size_t));
+			chatsock_send(app->server_sock, app->inputbox.data, message_size);
 			message_list_add(&app->message_list, app->inputbox_font, app->font_size,
 				app->inputbox.data,
 				message_color,
