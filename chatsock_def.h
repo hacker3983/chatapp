@@ -16,6 +16,8 @@ typedef int chatsock_fd_t;
 #endif
 #include <pthread.h>
 #include <stdbool.h>
+#include <string.h>
+#include <stdlib.h>
 
 typedef struct chatsock {
     chatsock_fd_t fd;
@@ -28,13 +30,16 @@ typedef struct chatsock {
 } chatsock_t;
 
 typedef struct chatsock_item {
+    size_t uid;
     chatsock_t sock;
     pthread_t recv_thread;
     bool recv_started;
     bool recv_finished;
+    bool disconnected;
 } chatsock_item_t;
 
 typedef struct chatsock_list {
+    pthread_mutex_t mutex;
     chatsock_item_t* list;
     size_t count;
 } chatsock_list_t;
