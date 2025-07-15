@@ -25,6 +25,7 @@ int main() {
     }
     printf("Listening on 0.0.0.0:%d\n", PORT);
     chatsock_list_t client_list = {0};
+    chatsock_list_mutex_init(&client_list);
     chatsock_acceptarg_t acception_arg = {
         .client_list = &client_list,
         .sock = sock
@@ -32,7 +33,18 @@ int main() {
     pthread_t acception_thread = chatsock_list_start_accept(&acception_arg);
     while(1) {
         for(size_t i=0;i<client_list.count;i++) {
-            if(client_list.list[i].recv_started
+            size_t client_uid = client_list.list[i].uid, client_index = i;
+            if(client_list.list[i].disconnected) {
+                chatsock_list_mutex_lock(&client_list);
+                if(chatsock_list_find(&client_list, client_uid, &client_index)) {
+                    chatsock_list_join_recv(&client_list, client_index);
+                    if(chatsock_list_remove(&client_list, client_index)) {
+                        printf("Successfully removed client with uid %zu from server!\n", client_uid);
+                    }
+                }
+                chatsock_list_mutex_unlock(&client_list);
+                break;
+            } else if(client_list.list[i].recv_started
                 && client_list.list[i].recv_finished) {
                 char* message = chatsock_list_join_recv(&client_list, i);
                 printf("Message received from client %zu: %s\n", i, message);
