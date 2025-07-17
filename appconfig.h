@@ -7,10 +7,10 @@
 const char* header_text = "Chat Application in C";
 SDL_Color WINDOW_COLOR = {255, 255, 255, 255};
 SDL_Rect inputbox = {
-		.x = 0,
-		.y = 0,
-		.w = 100,
-		.h = 50
+	.x = 0,
+	.y = 0,
+	.w = 100,
+	.h = 50
 };
 SDL_Rect inputbox_textcanvas = {0};
 SDL_Color inputbox_textcolor = {0xff, 0xff, 0xff, 0xff};
