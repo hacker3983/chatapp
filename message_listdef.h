@@ -21,7 +21,9 @@ typedef struct message {
 
 typedef struct message_list {
     int start_x, start_y;
+    bool scrolled;
+    SDL_Rect viewport;
     message_t* messages;
-    size_t message_count;
+    size_t render_pos, message_count;
 } message_list_t;
 #endif

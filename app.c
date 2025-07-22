@@ -38,6 +38,20 @@ void app_create(app_t* app) {
 		FONT_SIZE);
 }
 
+
+bool app_rect_hover_horizontal(app_t* app, SDL_Rect rect) {
+	return app->mouse_x <= rect.x + rect.w && app->mouse_x >= rect.x;
+}
+
+bool app_rect_hover_vertical(app_t* app, SDL_Rect rect) {
+	return app->mouse_y <= rect.y + rect.h && app->mouse_y >= rect.y;
+}
+
+bool app_rect_hover(app_t* app, SDL_Rect rect) {
+	return app_rect_hover_horizontal(app, rect)
+		&& app_rect_hover_vertical(app, rect);	
+}
+
 void app_getwindowsize(app_t* app) {
 	SDL_GetWindowSize(app->window, &app->win_width, &app->win_height);
 }
@@ -59,39 +73,6 @@ void* app_recv_message(void* arg) {
 
 void app_run(app_t* app) {
 	pthread_t recv_thread;
-	if(!app->font) {
-		printf("Failed to open font\n");
-	}
-	if(TTF_SizeText(app->font, header_text, &header_w, &header_h) < 0) {
-		printf("Failed to get the size of the text\n");
-	}
-	SDL_Rect header_textcanvas = {
-		.x = 0,
-		.y = 0,
-		.w = (const int)header_w,
-		.h = (const int)header_h
-	};
-	SDL_Rect header = {
-		.x = 0,
-		.y = 0,
-		.w = (const int)header_w + 40,
-		.h = (const int)header_h + 40
-	};
-	SDL_Color header_color = {0};
-	
-	SDL_Rect message_canvas = {
-		.x = 0,
-		.y = header.y + header.h + 10,
-		.w = 0,
-		.h = 0
-	};
-	SDL_Surface* header_textsurface = TTF_RenderText_Blended(app->font, header_text,
-		header_textcolor);
-	if(header_textsurface) {
-		printf("The header textsurface is not NULL\n");
-	}
-	header_texture = SDL_CreateTextureFromSurface(app->renderer, header_textsurface);
-	SDL_FreeSurface(header_textsurface);
 	while(!app->quit) {
 		while(SDL_PollEvent(&app->e)) {
 			if(app->e.type == SDL_QUIT) {
@@ -100,19 +81,23 @@ void app_run(app_t* app) {
 				app->e.type == SDL_KEYDOWN ||
 				app->e.type == SDL_KEYUP) {
 				inputbox_handle_events(app, &app->inputbox);
+			} else if(app->e.type == SDL_MOUSEMOTION) {
+				app->mouse_x = app->e.motion.x,
+				app->mouse_y = app->e.motion.y;
+			} else if(app->e.type == SDL_MOUSEWHEEL) {
+				if(app->e.wheel.y < 0) {
+					app->scroll_type = APP_SCROLLDOWN;
+					printf("Scrolling Down\n");
+				} else if(app->e.wheel.y > 0) {
+					app->scroll_type = APP_SCROLLUP;
+					printf("Scroll Up\n");
+				}
+				app->scroll = true;
+				printf("Detected scroll event!\n");
 			}
 		}
 		app_getwindowsize(app);
 		app_setwindowcolor(app, WINDOW_COLOR);
-		SDL_SetRenderDrawColor(app->renderer, color_toparam(header_color));
-		header.x = (app->win_width - header.w) / 2;
-		SDL_RenderDrawRect(app->renderer, &header);
-		SDL_RenderFillRect(app->renderer, &header);
-		header_textcanvas.x = header.x + (header.w - header_textcanvas.w) / 2;
-		header_textcanvas.y = header.y + (header.h - header_textcanvas.h) / 2;
-		if(header_texture) {
-			SDL_RenderCopy(app->renderer, header_texture, NULL, &header_textcanvas);
-		}
 
 		if(!recv_threadstarted) {
 			pthread_create(&recv_thread, NULL, &app_recv_message, app);
@@ -134,24 +119,21 @@ void app_run(app_t* app) {
 			received_message = false;
 		}
 		if(app->inputbox.enter_pressed) {
-			size_t message_size = strlen(app->inputbox.data);
-			chatsock_send(app->server_sock, &message_size, sizeof(size_t));
-			chatsock_send(app->server_sock, app->inputbox.data, message_size);
-			message_list_add(&app->message_list, app->inputbox_font, app->font_size,
-				app->inputbox.data,
-				message_color,
-				10,
-				10,
-				10,
-				message_canvascolor
-			);
-			inputbox_clear(&app->inputbox);
+			if(app->inputbox.data) {
+				size_t message_size = strlen(app->inputbox.data);
+				chatsock_send(app->server_sock, &message_size, sizeof(size_t));
+				chatsock_send(app->server_sock, app->inputbox.data, message_size);
+				message_list_add(&app->message_list, app->inputbox_font, app->font_size,
+					app->inputbox.data,
+					message_color,
+					10,
+					10,
+					10,
+					message_canvascolor
+				);
+				inputbox_clear(&app->inputbox);
+			}
 		}
-		int start_x = 10, start_y = header.y + header.h + 10;
-		message_list_setstartpos(&app->message_list, start_x, start_y);
-		// Display our message
-		message_list_display(app, &app->message_list);
-		
 		inputbox_init(&app->inputbox, app->inputbox_font, app->font_size,
 			inputbox_textcolor,
 			app->win_width - 40, 50, inputbox_color,
@@ -163,6 +145,39 @@ void app_run(app_t* app) {
 		);
 		app->inputbox.canvas.x = (app->win_width - app->inputbox.canvas.w) / 2;
 		app->inputbox.canvas.y = app->win_height - app->inputbox.canvas.h - 20;
+		int start_x = 10, start_y = 1;
+		SDL_Rect viewport = {
+			.x = 0,
+			.y = 0,
+			.w = app->win_width,
+			.h = app->inputbox.canvas.y - start_y
+		};
+		int scrollbar_w = 50,
+		    scrollbar_h = 100;
+		SDL_Color scrollbar_color = {0};
+		SDL_Rect scrollbar = {
+			.x = viewport.w - scrollbar_w,
+			.y = viewport.y,
+			.w = scrollbar_w,
+			.h = scrollbar_h
+		};
+		message_list_setviewport(&app->message_list, viewport);
+		message_list_setstartpos(&app->message_list, start_x, start_y);
+		// Display our message
+		message_list_display(app, &app->message_list);
+		message_list_performscroll(app, &app->message_list);
+
+		// Render the scroll bar
+		if(app->message_list.messages) {
+			double percentage = (double)app->message_list.render_pos /
+				app->message_list.message_count;
+			double percentage_of = (viewport.h - scrollbar_h)
+				* percentage;
+			scrollbar.y += (int)percentage_of;
+		}
+		SDL_SetRenderDrawColor(app->renderer, color_toparam(scrollbar_color));
+		SDL_RenderDrawRect(app->renderer, &scrollbar);
+		SDL_RenderFillRect(app->renderer, &scrollbar);
 		inputbox_display(app, &app->inputbox);
 		SDL_RenderPresent(app->renderer);
 	}
@@ -172,7 +187,6 @@ void app_destroy(app_t* app) {
 	chatsock_close(&app->server_sock);
 	message_list_destroy(&app->message_list);
 	inputbox_destroy(&app->inputbox);
-	SDL_DestroyTexture(header_texture);
 	SDL_DestroyRenderer(app->renderer);
 	SDL_DestroyWindow(app->window);
 	TTF_CloseFont(app->font);

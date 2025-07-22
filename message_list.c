@@ -15,6 +15,10 @@ void message_list_setstartpos(message_list_t* message_list, int start_x, int sta
     message_list->start_y = start_y;
 }
 
+void message_list_setviewport(message_list_t* message_list, SDL_Rect viewport) {
+	message_list->viewport = viewport;
+}
+
 void message_list_add(message_list_t* message_list,
     TTF_Font* font, int font_size, const char* message,
     SDL_Color message_color, int padding_x,
@@ -44,17 +48,58 @@ void message_list_add(message_list_t* message_list,
     message_list->message_count = new_count;
 }
 
+void message_list_performscroll(app_t* app, message_list_t* message_list) {
+	if(!message_list->messages) {
+		return;
+	}
+	message_t* last_message = &message_list->messages
+		[message_list->message_count-1];
+	SDL_Rect* last_canvas = &last_message->canvas,
+		viewport = message_list->viewport;
+	if(!message_list->scrolled && last_canvas->y + last_canvas->h > viewport.y + viewport.h) {
+		message_list->render_pos++;
+	}
+	if(!app->scroll) {
+		return;
+	}
+	if(!app_rect_hover(app, viewport)) {
+		return;
+	}
+	size_t end_renderpos = message_list->message_count-1;
+	for(size_t i=message_list->render_pos;i<message_list->message_count;i++) {
+		if(message_list->messages[i].canvas.y + message_list->messages[i].canvas.h
+			> viewport.y + viewport.h) {
+			end_renderpos = i;
+			break;
+		}
+	}
+	if(end_renderpos == message_list->message_count-1) {
+		message_list->scrolled = false;
+	}
+	if(app->scroll_type == APP_SCROLLDOWN && end_renderpos
+		< message_list->message_count-1) {
+		message_list->render_pos++;
+	} else if(app->scroll_type == APP_SCROLLUP
+		&& message_list->render_pos > 0) {
+		message_list->render_pos--;
+		message_list->scrolled = true;
+	}
+	app->scroll = false;
+}
+
 void message_list_display(app_t* app, message_list_t* message_list) {
     if(!message_list->messages) {
         return;
     }
     int start_x = message_list->start_x, start_y = message_list->start_y;
-    for(size_t i=0;i<message_list->message_count;i++) {
+    for(size_t i=message_list->render_pos;i<message_list->message_count;i++) {
         SDL_Rect* canvas = &message_list->messages[i].canvas,
             *text_canvas = &message_list->messages[i].text_canvas;
         canvas->x = start_x,
         canvas->y = start_y;
-    
+	if(canvas->y + canvas->h > message_list->viewport.y + message_list->viewport.h) {
+		break;
+	}
         // Display our message canvas
         SDL_SetRenderDrawColor(app->renderer,
             color_toparam(message_list->messages[i].canvas_color));
